@@ -28,15 +28,16 @@ public extension Subtitles {
 	/// A time definition for a subtitles file
 	struct Time: Hashable, Comparable, Codable, Equatable, CustomDebugStringConvertible {
 		/// Create a Time
+		///
+		/// A component past its range carries into the next unit: `second: 60` is one more
+		/// minute, `millisecond: 1500` is one more second and 500 ms. Caption generators do
+		/// write "01:29:60,000", and one rounding slip must not take the whole file down.
 		public init(hour: UInt = 0, minute: UInt = 0, second: UInt = 0, millisecond: UInt = 0) {
-			assert(minute < 60)
-			assert(second < 60)
-			assert(millisecond < 1000)
-
-			self.hour = hour
-			self.minute = minute
-			self.second = second
-			self.millisecond = millisecond
+			let totalMilliseconds = ((hour * 60 + minute) * 60 + second) * 1000 + millisecond
+			self.hour = totalMilliseconds / 3_600_000
+			self.minute = (totalMilliseconds / 60_000) % 60
+			self.second = (totalMilliseconds / 1000) % 60
+			self.millisecond = totalMilliseconds % 1000
 
 			var results: Double = Double(self.hour) * 3600
 			results += Double(self.minute) * 60
@@ -45,9 +46,9 @@ public extension Subtitles {
 			self.timeInSeconds = results
 		}
 
-		/// Create a time from a raw seconds value
+		/// Create a time from a raw seconds value. A negative value clamps to zero.
 		public init(timeInSeconds seconds: Double) {
-			assert(seconds >= 0)
+			let seconds = max(0, seconds)
 			self.timeInSeconds = seconds
 			let time = UInt(seconds)
 			self.millisecond = UInt((seconds.truncatingRemainder(dividingBy: 1)) * 1000)
